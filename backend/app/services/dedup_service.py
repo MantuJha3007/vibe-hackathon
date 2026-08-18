@@ -10,9 +10,6 @@ from app.services.priority_service import compute_priority_score
 DEDUP_RADIUS_M = 200  # metres
 GEOHASH_PRECISION = 5  # ~5km cell — broad first pass
 
-# pygeohash neighbour directions
-_NEIGHBOR_DIRS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
-
 
 def _encode(lat: float, lng: float) -> str:
     """Encode lat/lng to geohash at fixed precision."""
@@ -20,14 +17,33 @@ def _encode(lat: float, lng: float) -> str:
 
 
 def _expand(geohash_str: str) -> list[str]:
-    """Return the geohash itself plus all 8 neighbours."""
-    neighbours = [geohash_str]
-    for direction in _NEIGHBOR_DIRS:
-        try:
-            neighbours.append(gh.get_adjacent(geohash_str, direction))
-        except Exception:
-            pass
-    return list(set(neighbours))
+    """Return the geohash itself plus all 8 neighbouring cells."""
+    if not geohash_str:
+        return []
+    try:
+        lat, lon, lat_err, lon_err = gh.decode_exactly(geohash_str)
+        precision = len(geohash_str)
+        
+        offsets = [
+            (0, 0),
+            (2 * lat_err, 0),
+            (-2 * lat_err, 0),
+            (0, 2 * lon_err),
+            (0, -2 * lon_err),
+            (2 * lat_err, 2 * lon_err),
+            (2 * lat_err, -2 * lon_err),
+            (-2 * lat_err, 2 * lon_err),
+            (-2 * lat_err, -2 * lon_err),
+        ]
+        
+        cells = set()
+        for dlat, dlon in offsets:
+            n_lat = min(90.0, max(-90.0, lat + dlat))
+            n_lon = ((lon + dlon + 180.0) % 360.0) - 180.0
+            cells.add(gh.encode(n_lat, n_lon, precision=precision))
+        return list(cells)
+    except Exception:
+        return [geohash_str]
 
 
 async def find_or_create_ticket(
