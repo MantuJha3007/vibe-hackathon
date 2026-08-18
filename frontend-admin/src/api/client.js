@@ -5,6 +5,7 @@ export async function getTickets(params = {}) {
   if (params.status) query.set("status", params.status);
   if (params.department) query.set("department", params.department);
   if (params.category) query.set("category", params.category);
+  if (params.severity) query.set("severity", params.severity);
   const res = await fetch(`${BASE_URL}/tickets?${query}`);
   if (!res.ok) throw new Error("Failed to fetch tickets");
   return res.json();
@@ -25,3 +26,22 @@ export async function updateTicketStatus(id, status) {
   if (!res.ok) throw new Error("Status update failed");
   return res.json();
 }
+
+export async function checkHealth() {
+  const start = performance.now();
+  const res = await fetch(`${BASE_URL}/health`, { cache: "no-store" });
+  const latency = Math.round(performance.now() - start);
+  if (!res.ok) throw new Error("Backend health check failed");
+  const data = await res.json();
+  return { ...data, latency };
+}
+
+export async function seedTickets() {
+  const res = await fetch(`${BASE_URL}/tickets/seed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to seed sample tickets");
+  return res.json();
+}
+

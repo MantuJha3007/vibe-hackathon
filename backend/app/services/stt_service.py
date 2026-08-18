@@ -17,7 +17,17 @@ async def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> 
     Transcribe audio using Groq's Whisper API.
     Accepts raw audio bytes (webm/mp4/wav/ogg) and returns transcribed text.
     """
-    audio_file = (filename, io.BytesIO(audio_bytes), "audio/webm")
+    ext = os.path.splitext(filename)[1].lower().lstrip(".")
+    mime_map = {
+        "wav": "audio/wav",
+        "webm": "audio/webm",
+        "mp4": "audio/mp4",
+        "m4a": "audio/m4a",
+        "ogg": "audio/ogg",
+        "mp3": "audio/mpeg",
+    }
+    content_type = mime_map.get(ext, "audio/webm")
+    audio_file = (filename, audio_bytes, content_type)
     client = get_client()
 
     try:
@@ -31,9 +41,8 @@ async def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> 
         logger.error(f"Groq Whisper transcription failed: {e}")
         raise RuntimeError(f"Voice transcription failed: {e}") from e
 
-    # Groq returns a Transcription object when response_format="text";
-    # extract the text content safely.
+    # Groq returns a string when response_format="text" or Transcription object
     if isinstance(transcription, str):
         return transcription.strip()
-    # Some SDK versions return an object with a .text attribute
     return getattr(transcription, "text", str(transcription)).strip()
+

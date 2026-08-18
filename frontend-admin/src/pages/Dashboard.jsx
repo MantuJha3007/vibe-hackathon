@@ -16,14 +16,30 @@ function timeAgo(dateStr) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export default function Dashboard() {
+export default function Dashboard({ initialView }) {
   const [tickets, setTickets] = useState([]);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [view, setView] = useState("split");
+  const [view, setView] = useState(() => {
+    if (initialView) return initialView;
+    try {
+      const saved = localStorage.getItem("sentinel_preferences");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.defaultView) return parsed.defaultView;
+      }
+    } catch {}
+    return "split";
+  });
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  useEffect(() => {
+    if (initialView) {
+      setView(initialView);
+    }
+  }, [initialView]);
 
   const load = useCallback(async () => {
     setLoading(true);
