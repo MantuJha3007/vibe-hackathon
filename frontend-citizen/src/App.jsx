@@ -8,37 +8,49 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="header-brand">
-          <span className="brand-icon">🛡️</span>
-          <span className="brand-name">Sentinel</span>
-          <span className="brand-tag">Civic Intelligence</span>
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
+            <div className="sidebar-logo-icon">🛡️</div>
+            <span className="sidebar-logo-name">Sentinel</span>
+          </div>
+          <div className="sidebar-subtitle">Citizen Portal</div>
         </div>
-        <nav className="header-nav">
+
+        <nav className="sidebar-nav">
           <button
             id="nav-submit"
-            className={`nav-btn ${page === "submit" ? "active" : ""}`}
+            className={`nav-item ${page === "submit" ? "active" : ""}`}
             onClick={() => setPage("submit")}
           >
-            📝 Report Issue
+            <span className="nav-item-icon">📝</span>
+            Report Issue
           </button>
           <button
             id="nav-track"
-            className={`nav-btn ${page === "track" ? "active" : ""}`}
+            className={`nav-item ${page === "track" ? "active" : ""}`}
             onClick={() => setPage("track")}
           >
-            🔍 Track Status
+            <span className="nav-item-icon">🔍</span>
+            Track Complaint
           </button>
         </nav>
-      </header>
 
+        <div className="sidebar-footer">
+          <button className="sidebar-footer-link">
+            <span>ℹ️</span> About Sentinel
+          </button>
+          <button className="sidebar-footer-link">
+            <span>❓</span> Help &amp; Support
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
       <main className="app-main">
         {page === "submit" ? <SubmitComplaint /> : <TrackTicket />}
       </main>
-
-      <footer className="app-footer">
-        <span>Powered by Groq AI · Built for citizens</span>
-      </footer>
     </div>
   );
 }

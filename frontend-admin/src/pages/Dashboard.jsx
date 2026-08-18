@@ -4,13 +4,26 @@ import TicketList from "../components/TicketList";
 import TicketDetail from "../components/TicketDetail";
 import { getTickets } from "../api/client";
 
+const SEV_LABEL = { 1: "Low", 2: "Low", 3: "Medium", 4: "High", 5: "Critical" };
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 export default function Dashboard() {
   const [tickets, setTickets] = useState([]);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [view, setView] = useState("split"); // split | map | list
+  const [view, setView] = useState("split");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -18,6 +31,7 @@ export default function Dashboard() {
       const params = filter !== "all" ? { status: filter } : {};
       const data = await getTickets(params);
       setTickets(data.tickets);
+      setLastUpdated(new Date());
     } catch {
       setError("Could not load tickets from backend.");
     } finally {
@@ -27,7 +41,6 @@ export default function Dashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh every 30s
   useEffect(() => {
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
@@ -38,47 +51,91 @@ export default function Dashboard() {
     setSelected(updated);
   }
 
+  const allTickets = tickets; // for KPIs we always use the full list
   const counts = {
     all: tickets.length,
     new: tickets.filter((t) => t.status === "new").length,
     in_progress: tickets.filter((t) => t.status === "in_progress").length,
     resolved: tickets.filter((t) => t.status === "resolved").length,
+    high_priority: tickets.filter((t) => t.severity >= 4).length,
   };
 
-  const avgSeverity = tickets.length
-    ? (tickets.reduce((s, t) => s + t.severity, 0) / tickets.length).toFixed(1)
-    : "—";
+  const filterLabels = {
+    all: "All",
+    new: "New",
+    in_progress: "In Progress",
+    resolved: "Resolved",
+  };
+
+  const viewLabels = {
+    split: "Split",
+    map: "Map",
+    list: "List",
+  };
 
   return (
     <div className="dashboard">
-      {/* Stats Bar */}
-      <div className="stats-bar">
-        <div className="stat-card" id="stat-total">
-          <span className="stat-num">{counts.all}</span>
-          <span className="stat-lbl">Total</span>
+      {/* Page Header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <div className="page-title">Overview</div>
+          <div className="page-description">
+            Monitor and manage all civic and industrial incidents.
+          </div>
         </div>
-        <div className="stat-card stat-new" id="stat-new">
-          <span className="stat-num">{counts.new}</span>
-          <span className="stat-lbl">New</span>
+        <div className="page-header-right">
+          {lastUpdated && (
+            <span className="last-updated">
+              Updated {timeAgo(lastUpdated.toISOString())}
+            </span>
+          )}
+          <div className="header-badge">
+            <span className="status-dot" />
+            Operational
+          </div>
+          <button className="refresh-btn" onClick={load} id="btn-refresh">
+            ↻ Refresh
+          </button>
         </div>
-        <div className="stat-card stat-progress" id="stat-progress">
-          <span className="stat-num">{counts.in_progress}</span>
-          <span className="stat-lbl">In Progress</span>
-        </div>
-        <div className="stat-card stat-resolved" id="stat-resolved">
-          <span className="stat-num">{counts.resolved}</span>
-          <span className="stat-lbl">Resolved</span>
-        </div>
-        <div className="stat-card" id="stat-severity">
-          <span className="stat-num">{avgSeverity}</span>
-          <span className="stat-lbl">Avg Severity</span>
-        </div>
-        <button className="refresh-btn" onClick={load} id="btn-refresh" title="Refresh">
-          🔄
-        </button>
       </div>
 
-      {/* Filter & View Controls */}
+      {/* KPI Row */}
+      <div className="kpi-row">
+        <div className="kpi-card" id="kpi-total">
+          <div className="kpi-body">
+            <div className="kpi-label">Total Incidents</div>
+            <div className="kpi-value">{counts.all}</div>
+            <div className="kpi-trend">All time</div>
+          </div>
+          <div className="kpi-icon kpi-icon-total">📊</div>
+        </div>
+        <div className="kpi-card" id="kpi-high">
+          <div className="kpi-body">
+            <div className="kpi-label">High Priority</div>
+            <div className="kpi-value">{counts.high_priority}</div>
+            <div className="kpi-trend warn">Sev 4–5</div>
+          </div>
+          <div className="kpi-icon kpi-icon-high">🔴</div>
+        </div>
+        <div className="kpi-card" id="kpi-progress">
+          <div className="kpi-body">
+            <div className="kpi-label">In Progress</div>
+            <div className="kpi-value">{counts.in_progress}</div>
+            <div className="kpi-trend">Active</div>
+          </div>
+          <div className="kpi-icon kpi-icon-progress">🔧</div>
+        </div>
+        <div className="kpi-card" id="kpi-resolved">
+          <div className="kpi-body">
+            <div className="kpi-label">Resolved</div>
+            <div className="kpi-value">{counts.resolved}</div>
+            <div className="kpi-trend up">Closed</div>
+          </div>
+          <div className="kpi-icon kpi-icon-resolved">✅</div>
+        </div>
+      </div>
+
+      {/* Controls Bar */}
       <div className="controls-bar">
         <div className="filter-tabs">
           {["all", "new", "in_progress", "resolved"].map((f) => (
@@ -88,7 +145,12 @@ export default function Dashboard() {
               className={`filter-tab ${filter === f ? "active" : ""}`}
               onClick={() => setFilter(f)}
             >
-              {f === "all" ? "All" : f === "in_progress" ? "In Progress" : f.charAt(0).toUpperCase() + f.slice(1)}
+              {filterLabels[f]}{" "}
+              {f !== "all" && (
+                <span style={{ opacity: 0.65, marginLeft: 2 }}>
+                  ({counts[f] ?? 0})
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -100,25 +162,33 @@ export default function Dashboard() {
               className={`view-tab ${view === v ? "active" : ""}`}
               onClick={() => setView(v)}
             >
-              {v === "split" ? "⬛ Split" : v === "map" ? "🗺 Map" : "📋 List"}
+              {viewLabels[v]}
             </button>
           ))}
         </div>
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <div className="error-banner">⚠ {error}</div>}
       {loading && <div className="loading-bar" />}
 
       {/* Main Content */}
       <div className={`dashboard-body view-${view}`}>
         {(view === "split" || view === "map") && (
           <div className="map-pane">
-            <TicketMap tickets={tickets} selected={selected} onSelect={setSelected} />
+            <TicketMap
+              tickets={tickets}
+              selected={selected}
+              onSelect={setSelected}
+            />
           </div>
         )}
         {(view === "split" || view === "list") && (
           <div className="list-pane">
-            <TicketList tickets={tickets} selected={selected} onSelect={setSelected} />
+            <TicketList
+              tickets={tickets}
+              selected={selected}
+              onSelect={setSelected}
+            />
           </div>
         )}
         <div className={`detail-pane ${selected ? "has-ticket" : ""}`}>
