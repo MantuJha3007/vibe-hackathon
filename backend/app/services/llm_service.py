@@ -42,19 +42,38 @@ async def analyze_complaint(complaint: ComplaintInput) -> ComplaintAnalysis:
     if complaint.lat and complaint.lng:
         user_content += f"\n[GPS: {complaint.lat}, {complaint.lng}]"
 
-    try:
-        response = await client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
-            temperature=0.1,
-            max_tokens=512,
-        )
-    except Exception as e:
-        logger.error(f"Groq API call failed: {e}")
-        raise RuntimeError(f"LLM service unavailable: {e}") from e
+    models_to_try = [
+        getattr(settings, "GROQ_MODEL", "groq/compound-mini"),
+        "groq/compound-mini",
+        "groq/compound",
+        "llama-3.3-70b-versatile",
+        "allam-2-7b",
+    ]
+    # Remove duplicate order-preserved entries
+    models_to_try = list(dict.fromkeys(models_to_try))
+
+    response = None
+    last_err = None
+    for model_name in models_to_try:
+        try:
+            response = await client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+                temperature=0.1,
+                max_tokens=512,
+            )
+            if response and response.choices and response.choices[0].message.content:
+                break
+        except Exception as e:
+            last_err = e
+            logger.warning(f"Groq model {model_name} failed: {e}. Trying fallback...")
+
+    if not response or not response.choices:
+        logger.error(f"All Groq model attempts failed. Last error: {last_err}")
+        raise RuntimeError(f"LLM service unavailable: {last_err}")
 
     raw = response.choices[0].message.content.strip()
 
