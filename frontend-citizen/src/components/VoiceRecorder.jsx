@@ -1,13 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 
-const SEVERITY_LABELS = {
-  1: "Minor",
-  2: "Low",
-  3: "Moderate",
-  4: "High",
-  5: "Critical",
-};
-
 export default function VoiceRecorder({ onTranscript, disabled }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -46,41 +38,51 @@ export default function VoiceRecorder({ onTranscript, disabled }) {
     setBlob(null);
   }
 
-  const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const fmt = (s) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   return (
     <div className="voice-recorder">
+      {/* Idle: start button */}
       {!recording && !blob && (
         <button
-          className="btn btn-voice"
+          className="btn-voice"
           onClick={startRecording}
           disabled={disabled}
           id="btn-start-recording"
         >
-          <span className="pulse-dot" />
-          Start Voice Recording
+          <span className="voice-idle-icon">🎙</span>
+          Record Voice
         </button>
       )}
+
+      {/* Recording active */}
       {recording && (
         <div className="recording-active">
-          <div className="rec-indicator">
-            <span className="pulse-dot active" />
-            <span>Recording… {fmt(seconds)}</span>
-          </div>
-          <button className="btn btn-stop" onClick={stopRecording} id="btn-stop-recording">
-            ⬛ Stop
+          <span className="rec-dot" />
+          <span className="rec-label">Recording… {fmt(seconds)}</span>
+          <button
+            className="btn-stop"
+            onClick={stopRecording}
+            id="btn-stop-recording"
+          >
+            Stop
           </button>
         </div>
       )}
+
+      {/* Recording ready */}
       {blob && !recording && (
         <div className="recording-ready">
-          <span className="check-icon">✅</span>
-          <span>Recording ready ({fmt(seconds)})</span>
-          <button className="btn btn-primary" onClick={handleUse} id="btn-use-recording">
+          <span style={{ fontSize: "16px" }}>✓</span>
+          <span className="ready-label">
+            Recording ready — {fmt(seconds)}
+          </span>
+          <button className="btn-use" onClick={handleUse} id="btn-use-recording">
             Use Recording
           </button>
           <button
-            className="btn btn-ghost"
+            className="btn-discard"
             onClick={() => setBlob(null)}
             id="btn-discard-recording"
           >

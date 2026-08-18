@@ -1,56 +1,91 @@
-const SEV_COLOR = { 1: "#4ade80", 2: "#a3e635", 3: "#facc15", 4: "#fb923c", 5: "#f87171" };
+// Severity → priority label and badge class
+const SEV_PRIORITY = {
+  1: { label: "Low", cls: "badge-low" },
+  2: { label: "Low", cls: "badge-low" },
+  3: { label: "Medium", cls: "badge-medium" },
+  4: { label: "High", cls: "badge-high" },
+  5: { label: "Critical", cls: "badge-critical" },
+};
+
 const STATUS_BADGE = {
   new: { label: "New", cls: "badge-new" },
   in_progress: { label: "In Progress", cls: "badge-progress" },
   resolved: { label: "Resolved", cls: "badge-resolved" },
 };
 
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 export default function TicketList({ tickets, selected, onSelect }) {
   return (
-    <div className="ticket-list">
-      {tickets.length === 0 && (
-        <div className="empty-list">No tickets match the current filter.</div>
-      )}
-      {tickets.map((ticket) => {
-        const badge = STATUS_BADGE[ticket.status] || { label: ticket.status, cls: "" };
-        return (
-          <div
-            key={ticket.id}
-            className={`ticket-row ${selected?.id === ticket.id ? "selected" : ""}`}
-            onClick={() => onSelect(ticket)}
-            id={`ticket-row-${ticket.id}`}
-          >
-            <div className="ticket-row-left">
-              <div
-                className="sev-bar"
-                style={{ background: SEV_COLOR[ticket.severity] }}
-                title={`Severity ${ticket.severity}`}
-              />
-              <div className="ticket-row-info">
-                <div className="ticket-row-top">
-                  <span className="ticket-row-id">#{ticket.id}</span>
-                  <span className="ticket-row-cat">{ticket.category}</span>
-                  {ticket.report_count > 1 && (
-                    <span className="report-count" title="Reports">🔥 {ticket.report_count}</span>
-                  )}
-                </div>
-                <div className="ticket-row-summary">{ticket.summary}</div>
-                <div className="ticket-row-meta">
-                  <span>{ticket.department}</span>
-                  {ticket.address && <span>· {ticket.address}</span>}
-                  <span>· Priority {ticket.priority_score.toFixed(1)}</span>
-                </div>
-              </div>
-            </div>
-            <div className="ticket-row-right">
-              <span className={`status-badge ${badge.cls}`}>{badge.label}</span>
-              <span className="ticket-date">
-                {new Date(ticket.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+    <div>
+      {/* Table Header */}
+      <div className="ticket-table-header">
+        <span className="th">ID</span>
+        <span className="th">Category</span>
+        <span className="th">Priority</span>
+        <span className="th">Department</span>
+        <span className="th">Status</span>
+        <span className="th">Reports</span>
+        <span className="th">Updated</span>
+      </div>
+
+      <div className="ticket-list">
+        {tickets.length === 0 && (
+          <div className="empty-list">No tickets match the current filter.</div>
+        )}
+        {tickets.map((ticket) => {
+          const priority = SEV_PRIORITY[ticket.severity] || {
+            label: "Unknown",
+            cls: "",
+          };
+          const badge = STATUS_BADGE[ticket.status] || {
+            label: ticket.status,
+            cls: "",
+          };
+          return (
+            <div
+              key={ticket.id}
+              className={`ticket-row ${
+                selected?.id === ticket.id ? "selected" : ""
+              }`}
+              onClick={() => onSelect(ticket)}
+              id={`ticket-row-${ticket.id}`}
+            >
+              <span className="td ticket-id-cell">INC-{ticket.id}</span>
+              <span className="td ticket-cat-cell">{ticket.category}</span>
+              <span className="td">
+                <span className={`priority-badge ${priority.cls}`}>
+                  {priority.label}
+                </span>
+              </span>
+              <span className="td ticket-dept-cell" title={ticket.department}>
+                {ticket.department}
+              </span>
+              <span className="td">
+                <span className={`status-badge ${badge.cls}`}>
+                  <span className="status-dot-sm" />
+                  {badge.label}
+                </span>
+              </span>
+              <span className="td ticket-reports-cell">
+                {ticket.report_count}{" "}
+                {ticket.report_count === 1 ? "report" : "reports"}
+              </span>
+              <span className="td ticket-time-cell">
+                {timeAgo(ticket.updated_at || ticket.created_at)}
               </span>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
