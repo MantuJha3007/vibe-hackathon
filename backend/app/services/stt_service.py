@@ -1,11 +1,15 @@
 import io
+import os
 import logging
 from groq import AsyncGroq
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+
+def get_client() -> AsyncGroq:
+    api_key = settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY", "")
+    return AsyncGroq(api_key=api_key)
 
 
 async def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> str:
@@ -14,6 +18,7 @@ async def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> 
     Accepts raw audio bytes (webm/mp4/wav/ogg) and returns transcribed text.
     """
     audio_file = (filename, io.BytesIO(audio_bytes), "audio/webm")
+    client = get_client()
 
     try:
         transcription = await client.audio.transcriptions.create(

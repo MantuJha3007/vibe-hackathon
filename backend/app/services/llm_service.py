@@ -5,9 +5,15 @@ from groq import AsyncGroq
 from app.config import settings
 from app.schemas.complaint import ComplaintAnalysis, ComplaintInput, LocationInfo
 
+import os
+
 logger = logging.getLogger(__name__)
 
-client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+
+def get_client() -> AsyncGroq:
+    api_key = settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY", "")
+    return AsyncGroq(api_key=api_key)
+
 
 SYSTEM_PROMPT = """You are an AI assistant for a civic complaint management system.
 Analyze the citizen's complaint and extract structured information.
@@ -51,6 +57,7 @@ async def analyze_complaint(complaint: ComplaintInput) -> ComplaintAnalysis:
     # Remove duplicate order-preserved entries
     models_to_try = list(dict.fromkeys(models_to_try))
 
+    client = get_client()
     response = None
     last_err = None
     for model_name in models_to_try:

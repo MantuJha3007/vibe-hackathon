@@ -220,6 +220,8 @@ def test_yolo_inference_pipeline():
 # 5. FASTAPI ROUTE & LIFECYCLE TESTS (HTTPX)
 # -------------------------------------------------------------
 async def _async_fastapi_endpoints():
+    from app.database import create_tables
+    await create_tables()
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
         # 1. Health check
         res = await client.get("/health")
