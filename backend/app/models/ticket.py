@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy import String, Integer, Float, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,9 +25,15 @@ class Ticket(Base):
     original_text: Mapped[str] = mapped_column(String(2048), default="")
     geohash: Mapped[str] = mapped_column(String(16), index=True, default="")
 
+    # High-accuracy Location Metadata
+    location_accuracy: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
+    location_source: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, default="gps")  # gps, gps_adjusted, manual
+    location_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, default=_now)
+
     status: Mapped[str] = mapped_column(String(20), default="new", index=True)
     report_count: Mapped[int] = mapped_column(Integer, default=1)
     priority_score: Mapped[float] = mapped_column(Float, default=0.0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+

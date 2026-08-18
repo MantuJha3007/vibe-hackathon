@@ -107,25 +107,29 @@ export default function TicketDetail({ ticket, onUpdate, onClose }) {
       <hr className="detail-divider" />
 
       {/* Location */}
-      {ticket.address && (
-        <div className="detail-section">
-          <div className="detail-section-title">Location</div>
-          <div className="detail-location-row">
-            <span className="location-icon">📍</span>
-            <div>
-              <div className="detail-location-text">{ticket.address}</div>
-              {ticket.lat !== 0 && (
-                <div className="detail-coords">
-                  {ticket.lat?.toFixed(5)}, {ticket.lng?.toFixed(5)}
-                </div>
+      <div className="detail-section">
+        <div className="detail-section-title">Location</div>
+        <div className="detail-location-row">
+          <span className="location-icon">📍</span>
+          <div style={{ flex: 1 }}>
+            <div className="detail-location-text">{ticket.address || "Address detected from coordinates"}</div>
+            {ticket.lat !== 0 && (
+              <div className="detail-coords" style={{ marginTop: "2px" }}>
+                {Math.abs(ticket.lat).toFixed(6)}° {ticket.lat >= 0 ? "N" : "S"},{" "}
+                {Math.abs(ticket.lng).toFixed(6)}° {ticket.lng >= 0 ? "E" : "W"}
+              </div>
+            )}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "6px", fontSize: "11.5px", color: "var(--text-muted)" }}>
+              {ticket.location_accuracy && (
+                <span>Accuracy: <strong style={{ color: "var(--text)" }}>±{ticket.location_accuracy} m</strong></span>
               )}
+              <span>Source: <strong style={{ color: "var(--text)" }}>{ticket.location_source === "gps_adjusted" ? "GPS Adjusted" : ticket.location_source === "manual" ? "Manual Pin" : "Device GPS"}</strong></span>
+              <span>Reported: {formatDate(ticket.created_at)}</span>
             </div>
           </div>
-          <div style={{ fontSize: "11.5px", color: "var(--text-muted)", marginTop: "4px" }}>
-            Reported: {formatDate(ticket.created_at)}
-          </div>
         </div>
-      )}
+      </div>
+
 
       <hr className="detail-divider" />
 

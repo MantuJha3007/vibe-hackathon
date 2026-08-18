@@ -13,6 +13,9 @@ class TicketCreate(BaseModel):
     summary: str
     keywords: list[str] = []
     original_text: str = ""
+    location_accuracy: Optional[float] = None
+    location_source: Optional[str] = "gps"
+    location_timestamp: Optional[datetime] = None
 
 
 class TicketResponse(BaseModel):
@@ -29,9 +32,13 @@ class TicketResponse(BaseModel):
     report_count: int
     priority_score: float
     original_text: str
+    location_accuracy: Optional[float] = None
+    location_source: Optional[str] = "gps"
+    location_timestamp: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     is_duplicate: bool = False
+    duplicate_distance_meters: Optional[float] = None
 
     class Config:
         from_attributes = True
@@ -44,3 +51,4 @@ class TicketStatusUpdate(BaseModel):
 class TicketListResponse(BaseModel):
     tickets: list[TicketResponse]
     total: int
+

@@ -50,17 +50,10 @@ async def find_or_create_ticket(
     db: AsyncSession,
     analysis: ComplaintAnalysis,
     original_text: str = "",
-) -> tuple[Ticket, bool]:
+) -> tuple[Ticket, bool, float]:
     """
-    Attempt to find a near-duplicate open ticket.
-    Returns (ticket, is_duplicate).
-
-    Dedup logic:
-      1. Compute geohash of incoming coords.
-      2. Query open tickets sharing the same geohash bucket or neighbours.
-      3. For each candidate, check Haversine distance < DEDUP_RADIUS_M AND same category.
-      4. If found → increment report_count + recalculate priority, return (existing, True).
-      5. Else → create new ticket, return (new, False).
+    Attempt to find a near-duplicate open ticket within DEDUP_RADIUS_M (200m).
+    Returns (ticket, is_duplicate, distance_meters).
     """
     lat, lng = analysis.location.lat, analysis.location.lng
     incoming_hash = _encode(lat, lng)
@@ -81,7 +74,7 @@ async def find_or_create_ticket(
             ticket.priority_score = compute_priority_score(ticket.severity, ticket.report_count)
             await db.commit()
             await db.refresh(ticket)
-            return ticket, True
+            return ticket, True, round(dist, 1)
 
     # No duplicate — create fresh ticket
     score = compute_priority_score(analysis.severity, 1)
@@ -96,6 +89,9 @@ async def find_or_create_ticket(
         keywords=analysis.keywords,
         original_text=original_text,
         geohash=incoming_hash,
+        location_accuracy=analysis.location.accuracy,
+        location_source=analysis.location.source or "gps",
+        location_timestamp=analysis.location.timestamp,
         status="new",
         report_count=1,
         priority_score=score,
@@ -103,4 +99,5 @@ async def find_or_create_ticket(
     db.add(new_ticket)
     await db.commit()
     await db.refresh(new_ticket)
-    return new_ticket, False
+    return new_ticket, False, 0.0
+

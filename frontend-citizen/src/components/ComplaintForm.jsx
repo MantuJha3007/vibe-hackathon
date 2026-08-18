@@ -1,6 +1,7 @@
 import { useState, Fragment } from "react";
 import VoiceRecorder from "./VoiceRecorder";
 import ImageUploader from "./ImageUploader";
+import LocationPicker from "./LocationPicker";
 import { analyzeComplaint, submitComplaint } from "../api/client";
 
 const SEVERITY_COLOR = ["", "#16A34A", "#16A34A", "#D97706", "#EA580C", "#DC2626"];
@@ -18,45 +19,27 @@ export default function ComplaintForm({ onSuccess, onTrackTicket }) {
   const [step, setStep] = useState(1); // 1=input, 2=preview, 3=done
   const [inputMode, setInputMode] = useState("text"); // 'text' | 'voice' | 'image'
   const [text, setText] = useState("");
-  const [location, setLocation] = useState(null); // { lat, lng, text }
-  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationData, setLocationData] = useState(null); // { lat, lng, address, accuracy, source, timestamp }
   const [analysis, setAnalysis] = useState(null);
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Location capture using browser geolocation
-  function handleGetLocation() {
-    if (!navigator.geolocation) {
-      setLocation({ text: "Geolocation not supported" });
-      return;
-    }
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          text: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
-        });
-        setLocationLoading(false);
-      },
-      (err) => {
-        console.warn("Location error:", err);
-        setLocation({ text: "Location permission denied" });
-        setLocationLoading(false);
-      },
-      { timeout: 10000 }
-    );
-  }
-
   // Analyze complaint text
   async function handleAnalyze() {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      setError("Please describe the issue you observed.");
+      return;
+    }
+    if (!locationData || !locationData.lat) {
+      setError("Please capture or select your location so we can accurately place this incident.");
+      return;
+    }
+
     setLoading(true);
     setError("");
     try {
-      const result = await analyzeComplaint(text, location?.lat, location?.lng);
+      const result = await analyzeComplaint(text, locationData);
       setAnalysis(result);
       setStep(2);
     } catch (err) {
@@ -83,7 +66,7 @@ export default function ComplaintForm({ onSuccess, onTrackTicket }) {
     setLoading(true);
     setError("");
     try {
-      const result = await submitComplaint(text, location?.lat, location?.lng);
+      const result = await submitComplaint(text, locationData);
       setTicket(result);
       setStep(3);
       onSuccess?.(result);
@@ -98,6 +81,7 @@ export default function ComplaintForm({ onSuccess, onTrackTicket }) {
     setStep(1);
     setInputMode("text");
     setText("");
+    setLocationData(null);
     setAnalysis(null);
     setTicket(null);
     setError("");
@@ -117,6 +101,14 @@ export default function ComplaintForm({ onSuccess, onTrackTicket }) {
   const priorityBarColor = analysis
     ? SEVERITY_COLOR[analysis.severity]
     : "#2563EB";
+
+  // Coordinates formatter helper
+  function formatCoords(lat, lng) {
+    if (lat === undefined || lng === undefined) return "";
+    const latDir = lat >= 0 ? "N" : "S";
+    const lngDir = lng >= 0 ? "E" : "W";
+    return `${Math.abs(lat).toFixed(6)}° ${latDir}, ${Math.abs(lng).toFixed(6)}° ${lngDir}`;
+  }
 
   return (
     <div className="page-container">
@@ -219,24 +211,14 @@ export default function ComplaintForm({ onSuccess, onTrackTicket }) {
               )}
             </div>
 
-            {/* Location */}
+            {/* LOCATION SECTION (Authoritative GPS & Interactive Map Pin) */}
             <div className="card-section">
               <div className="section-label">Location</div>
-              <div className="location-row">
-                <span className="location-icon">📍</span>
-                <span className="location-text">
-                  {location?.text || "Location will be captured automatically"}
-                </span>
-                <button
-                  type="button"
-                  className="location-action"
-                  onClick={handleGetLocation}
-                  disabled={locationLoading}
-                  id="btn-use-location"
-                >
-                  {locationLoading ? "Locating..." : "Use my location"}
-                </button>
-              </div>
+              <LocationPicker
+                value={locationData}
+                onChange={setLocationData}
+                disabled={loading}
+              />
             </div>
 
             {/* CTA */}
@@ -320,16 +302,23 @@ export default function ComplaintForm({ onSuccess, onTrackTicket }) {
                   <div className="analysis-info-label">Department</div>
                   <div className="analysis-info-value">{analysis.department}</div>
                 </div>
-                {analysis.location?.address && (
-                  <div className="analysis-info-item" style={{ gridColumn: "1 / -1" }}>
-                    <div className="analysis-info-label">Location</div>
-                    <div className="analysis-info-value">{analysis.location.address}</div>
-                  </div>
-                )}
+              </div>
+
+              {/* Location Card Details */}
+              <div className="review-location-card">
+                <div className="review-loc-title">Authoritative Location</div>
+                <div className="review-loc-address">
+                  📍 {locationData?.address || analysis.location?.address || "Address detected"}
+                </div>
+                <div className="review-loc-meta">
+                  <span>Coordinates: <strong>{formatCoords(locationData?.lat ?? analysis.location?.lat, locationData?.lng ?? analysis.location?.lng)}</strong></span>
+                  {locationData?.accuracy && <span>Accuracy: <strong>±{locationData.accuracy} m</strong></span>}
+                  <span>Source: <strong>{locationData?.source === "gps_adjusted" ? "GPS Adjusted" : locationData?.source === "manual" ? "Manual Map Pin" : "Device GPS"}</strong></span>
+                </div>
               </div>
 
               {/* Priority score bar */}
-              <div className="priority-score-row">
+              <div className="priority-score-row" style={{ marginTop: "16px" }}>
                 <span className="priority-score-label">Priority Score</span>
                 <span className="priority-score-value">
                   {SEVERITY_LABEL[analysis.severity]}
@@ -409,14 +398,19 @@ export default function ComplaintForm({ onSuccess, onTrackTicket }) {
                 <span className="duplicate-title">Similar Incident Found</span>
               </div>
               <p className="duplicate-desc">
-                This issue appears to match an existing incident nearby. Your
-                report has been counted and the priority has been updated.
+                This issue appears to match an existing incident approximately{" "}
+                <strong>{ticket.duplicate_distance_meters ? `${ticket.duplicate_distance_meters} meters` : "nearby"}</strong> from your selected location. Your report has been registered and the priority score updated.
               </p>
               <div className="duplicate-ticket-ref">
                 <span className="duplicate-ticket-id">INC-{ticket.id}</span>
                 <span className="duplicate-ticket-reports">
                   {ticket.report_count} citizen reports
                 </span>
+                {ticket.duplicate_distance_meters !== null && (
+                  <span className="duplicate-ticket-distance">
+                    📍 {ticket.duplicate_distance_meters} m away
+                  </span>
+                )}
               </div>
             </div>
           )}

@@ -97,11 +97,21 @@ async def analyze_complaint(complaint: ComplaintInput) -> ComplaintAnalysis:
     # Clamp severity to valid range
     severity = max(1, min(5, int(data.get("severity", 3))))
 
-    # If complaint had explicit GPS, override LLM location
+    # If complaint had explicit GPS, override LLM location with authoritative physical coordinates
     location_data = data.get("location", {"lat": 0.0, "lng": 0.0, "address": ""})
-    if complaint.lat and complaint.lng:
+    if complaint.lat is not None and complaint.lng is not None:
         location_data["lat"] = complaint.lat
         location_data["lng"] = complaint.lng
+        location_data["accuracy"] = complaint.location_accuracy
+        location_data["source"] = complaint.location_source or "gps"
+        location_data["timestamp"] = complaint.location_timestamp
+
+        if complaint.address:
+            location_data["address"] = complaint.address
+        else:
+            from app.services.geocoding_service import reverse_geocode
+            geo_res = await reverse_geocode(complaint.lat, complaint.lng)
+            location_data["address"] = geo_res.get("address", location_data.get("address", ""))
 
     return ComplaintAnalysis(
         category=data.get("category", "Other"),
@@ -111,3 +121,4 @@ async def analyze_complaint(complaint: ComplaintInput) -> ComplaintAnalysis:
         summary=data.get("summary", complaint.text[:100]),
         keywords=data.get("keywords", []),
     )
+
